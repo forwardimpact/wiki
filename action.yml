@@ -1,0 +1,60 @@
+name: FIT Wiki
+description: >
+  Run a fit-wiki agent-memory command (push, pull, audit, …) in CI. When app
+  credentials are supplied, a fresh GitHub App installation token is minted for
+  the command — long agent jobs outlive the one-hour token minted at job start,
+  so push/pull need a freshly minted one. Run after
+  forwardimpact/fit-bootstrap@v1, which provides Bun, the workspace, and the
+  checked-out ./wiki working copy.
+
+inputs:
+  command:
+    description: >
+      fit-wiki subcommand and any arguments, e.g. "push", "pull", "audit".
+      Invoked verbatim as `bunx fit-wiki <command>`.
+    required: true
+  app-id:
+    description: >
+      GitHub App ID. When provided with app-private-key, a fresh installation
+      token is minted and exported as GH_TOKEN for the command. Omit for
+      commands that need no network auth (e.g. audit).
+    required: false
+    default: ""
+  app-private-key:
+    description: >
+      GitHub App private key, paired with app-id, for fresh-token minting.
+    required: false
+    default: ""
+  wiki-path:
+    description: Path to the checked-out wiki working copy.
+    required: false
+    default: "wiki"
+
+runs:
+  using: composite
+  steps:
+    - name: Mint fresh installation token
+      id: token
+      if: inputs.app-private-key != ''
+      uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.app-private-key }}
+
+    - name: Run fit-wiki command
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.command }}
+        WIKI_PATH: ${{ inputs.wiki-path }}
+        GH_TOKEN: ${{ steps.token.outputs.token }}
+      run: |
+        # actions/checkout (in fit-bootstrap) persists the start-of-job token
+        # as an http extraheader on the wiki working copy. On long jobs that
+        # token is expired, and it would shadow the fresh GH_TOKEN minted
+        # above; drop it so fit-wiki's own credential helper authenticates the
+        # command. Targeted unset — no `git submodule foreach`, so it never
+        # touches the parent repo. Harmless for local/no-network commands.
+        if [ -d "$WIKI_PATH/.git" ]; then
+          git -C "$WIKI_PATH" config --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+        fi
+        bunx fit-wiki $COMMAND
