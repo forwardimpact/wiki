@@ -47,6 +47,12 @@ runs:
         COMMAND: ${{ inputs.command }}
         WIKI_PATH: ${{ inputs.wiki-path }}
         GH_TOKEN: ${{ steps.token.outputs.token }}
+        # `fit-wiki fix` spawns a Claude Agent SDK run in bypass-permissions
+        # mode, which Claude Code refuses under uid 0 unless the process is
+        # marked sandboxed. CI containers may run as root, so mark the run
+        # sandboxed; the SDK forwards this env to the spawned process.
+        # Harmless on non-root runners and for non-agent commands (push/pull/audit).
+        IS_SANDBOX: "1"
       run: |
         # actions/checkout (in fit-bootstrap) persists the start-of-job token
         # as an http extraheader on the wiki working copy. On long jobs that
