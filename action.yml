@@ -11,7 +11,8 @@ inputs:
   command:
     description: >
       fit-wiki subcommand and any arguments, e.g. "push", "pull", "audit".
-      Invoked verbatim as `bunx fit-wiki <command>`.
+      Appended to the resolved fit-wiki CLI (local install, else
+      `bunx --package=@forwardimpact/libwiki fit-wiki`).
     required: true
   app-id:
     description: >
@@ -63,4 +64,15 @@ runs:
         if [ -d "$WIKI_PATH/.git" ]; then
           git -C "$WIKI_PATH" config --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
         fi
-        bunx fit-wiki $COMMAND
+        # Resolve CLI — prefer a local install, else resolve from the registry.
+        # fit-wiki is a bin of @forwardimpact/libwiki, NOT a standalone package,
+        # so `bunx fit-wiki` / `npx fit-wiki` 404 against the registry. Name the
+        # package explicitly with --package and pass the bin as the command.
+        if command -v fit-wiki &>/dev/null; then
+          WIKI_CMD="fit-wiki"
+        elif command -v bunx &>/dev/null; then
+          WIKI_CMD="bunx --package=@forwardimpact/libwiki fit-wiki"
+        else
+          WIKI_CMD="npx --yes --package=@forwardimpact/libwiki fit-wiki"
+        fi
+        $WIKI_CMD $COMMAND

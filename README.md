@@ -35,7 +35,7 @@ Read-only / local commands need no credentials:
 
 | Input | Required | Default | Description |
 |---|---|---|---|
-| `command` | yes | — | `fit-wiki` subcommand and args, run as `bunx fit-wiki <command>` |
+| `command` | yes | — | `fit-wiki` subcommand and args, appended to the resolved CLI (local install, else `bunx --package=@forwardimpact/libwiki fit-wiki`) |
 | `app-id` | no | `""` | GitHub App ID; with `app-private-key`, mints a fresh token as `GH_TOKEN` |
 | `app-private-key` | no | `""` | GitHub App private key for fresh-token minting |
 | `wiki-path` | no | `wiki` | Path to the checked-out wiki working copy |
