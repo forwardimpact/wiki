@@ -4,15 +4,16 @@ description: >
   credentials are supplied, a fresh GitHub App installation token is minted for
   the command — long agent jobs outlive the one-hour token minted at job start,
   so push/pull need a freshly minted one. Run after
-  forwardimpact/fit-bootstrap@v1, which provides Bun, the workspace, and the
-  checked-out ./wiki working copy.
+  forwardimpact/fit-bootstrap@v1 with `clis: fit-wiki`, which provides Bun, the
+  workspace, the checked-out ./wiki working copy, and the fit-wiki gear binary
+  on PATH. The binary is required — there is no bunx/npx fallback.
 
 inputs:
   command:
     description: >
       fit-wiki subcommand and any arguments, e.g. "push", "pull", "audit".
-      Appended to the resolved fit-wiki CLI (local install, else
-      `bunx --package=@forwardimpact/libwiki fit-wiki`).
+      Appended to the fit-wiki gear binary, which must be on PATH (installed by
+      fit-bootstrap with `clis: fit-wiki`).
     required: true
   app-id:
     description: >
@@ -64,15 +65,13 @@ runs:
         if [ -d "$WIKI_PATH/.git" ]; then
           git -C "$WIKI_PATH" config --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
         fi
-        # Resolve CLI — prefer a local install, else resolve from the registry.
-        # fit-wiki is a bin of @forwardimpact/libwiki, NOT a standalone package,
-        # so `bunx fit-wiki` / `npx fit-wiki` 404 against the registry. Name the
-        # package explicitly with --package and pass the bin as the command.
-        if command -v fit-wiki &>/dev/null; then
-          WIKI_CMD="fit-wiki"
-        elif command -v bunx &>/dev/null; then
-          WIKI_CMD="bunx --package=@forwardimpact/libwiki fit-wiki"
-        else
-          WIKI_CMD="npx --yes --package=@forwardimpact/libwiki fit-wiki"
+        # fit-wiki must already be on PATH as a pinned gear binary, installed by
+        # forwardimpact/fit-bootstrap with `clis: fit-wiki`. There is no
+        # bunx/npx fallback: the binary distribution is the only supported path,
+        # so a missing binary fails hard rather than silently resolving a
+        # different (registry) build.
+        if ! command -v fit-wiki &>/dev/null; then
+          echo "::error::fit-wiki not found on PATH. Install it as a gear binary via forwardimpact/fit-bootstrap with 'clis: fit-wiki' before this step. No bunx/npx fallback." >&2
+          exit 1
         fi
-        $WIKI_CMD $COMMAND
+        fit-wiki $COMMAND
